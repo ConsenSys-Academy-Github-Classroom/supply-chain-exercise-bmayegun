@@ -52,12 +52,12 @@ contract SupplyChain {
     }
 
     modifier verifyCaller(address _address) {
-        require(msg.sender == _address);
+        require(msg.sender == _address, "Cannot verify address");
         _;
     }
 
     modifier paidEnough(uint _price) {
-        require(msg.value >= _price);
+        require(msg.value >= _price, "Not paid enough");
         _;
     }
 
