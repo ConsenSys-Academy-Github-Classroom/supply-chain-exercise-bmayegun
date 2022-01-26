@@ -19,8 +19,8 @@ contract SupplyChain {
     // <struct Item: name, sku, price, state, seller, and buyer>
     struct Item {
         string name;
-        uint256 sku;
-        uint256 price;
+        uint sku;
+        uint price;
         State state;
         address payable seller;
         address payable buyer;
@@ -120,8 +120,8 @@ contract SupplyChain {
             sku: skuCount,
             price: _price,
             state: State.ForSale,
-            seller: msg.sender,
-            buyer: address(0)
+            seller: payable(msg.sender),
+            buyer: payable(address(0))
         });
 
         skuCount = skuCount + 1;
@@ -140,15 +140,15 @@ contract SupplyChain {
     //    - check the value after the function is called to make
     //      sure the buyer is refunded any excess ether sent.
     // 6. call the event associated with this function!
-    function buyItem(uint256 sku)
-        public
+    function buyItem(uint sku)
         payable
+	public
         forSale(sku)
-        paidEnough(items[sku].price)
+        paidEnough(sku)
         checkValue(sku)
     {
         items[sku].seller.transfer(items[sku].price);
-
+	items[sku].buyer = payable(msg.sender);
         items[sku].state = State.Sold;
 
         emit LogSold(sku);
