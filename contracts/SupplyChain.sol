@@ -1,12 +1,14 @@
-pragma solidity ^0.5.0;
+// SPDX-License-Identifier: MIT
+pragma solidity >=0.5.16 <0.9.0;
 
 contract SupplyChain {
+    // <owner>
     address public owner;
-
+    // <skuCount>
     uint256 public skuCount;
-
-    mapping(uint256 => Item) items;
-
+    // <items mapping>
+    mapping(uint256 => Item) public items;
+    // <enum State: ForSale, Sold, Shipped, Received>
     enum State {
         ForSale,
         Sold,
@@ -14,6 +16,7 @@ contract SupplyChain {
         Received
     }
 
+    // <struct Item: name, sku, price, state, seller, and buyer>
     struct Item {
         string name;
         uint256 sku;
@@ -22,18 +25,19 @@ contract SupplyChain {
         address payable seller;
         address payable buyer;
     }
-
     /*
      * Events
      */
 
-    event LogForSale(uint256 indexed _sku);
+    // <LogForSale event: sku arg>
+    event LogForSale(uint256 sku);
 
-    event LogSold(uint256 indexed _sku);
-
-    event LogShipped(uint256 indexed _sku);
-
-    event LogReceived(uint256 indexed _sku);
+    // <LogSold event: sku arg>
+    event LogSold(uint256 sku);
+    // <LogShipped event: sku arg>
+    event LogShipped(uint256 sku);
+    // <LogReceived event: sku arg>
+    event LogReceived(uint256 sku);
 
     /*
      * Modifiers
@@ -41,24 +45,19 @@ contract SupplyChain {
 
     // Create a modifer, `isOwner` that checks if the msg.sender is the owner of the contract
 
+    // <modifier: isOwner
     modifier isOwner() {
-        require(
-            msg.sender == owner,
-            "Only owners are allowed to perform this action"
-        );
+        require(msg.sender == owner, "Not Owner");
         _;
     }
 
-    modifier verifyCaller(address payable _address) {
-        require(
-            payable(msg.sender) == _address,
-            "Address must be valid and verified"
-        );
+    modifier verifyCaller(address _address) {
+        require(msg.sender == _address, "Cannot verify address");
         _;
     }
 
     modifier paidEnough(uint256 _price) {
-        require(msg.value >= _price, "Not enough token was sent");
+        require(msg.value >= _price, "Not paid enough");
         _;
     }
 
@@ -67,7 +66,7 @@ contract SupplyChain {
         _;
         uint256 _price = items[_sku].price;
         uint256 amountToRefund = msg.value - _price;
-        payable(items[_sku].buyer).transfer(amountToRefund);
+        items[_sku].buyer.transfer(amountToRefund);
     }
 
     // For each of the following modifiers, use what you learned about modifiers
@@ -80,40 +79,29 @@ contract SupplyChain {
 
     modifier forSale(uint256 _sku) {
         require(
-            items[_sku].state == State.ForSale && items[_sku].sku == _sku,
-            "This item is not for sale"
+            items[_sku].state == State.ForSale &&
+                items[_sku].seller != address(0)
         );
         _;
     }
-
     modifier sold(uint256 _sku) {
-        require(
-            items[_sku].state == State.Sold,
-            "This item has not been bought"
-        );
+        require(items[_sku].state == State.Sold);
         _;
     }
-
     modifier shipped(uint256 _sku) {
-        require(
-            items[_sku].state == State.Shipped,
-            "This item has not been shipped"
-        );
+        require(items[_sku].state == State.Shipped);
         _;
     }
-
     modifier received(uint256 _sku) {
-        require(
-            items[_sku].state == State.Received,
-            "The buyer is yet to receive this item"
-        );
+        require(items[_sku].state == State.Received);
         _;
     }
 
-    constructor() {
+    constructor() public {
         // 1. Set the owner to the transaction sender
         owner = msg.sender;
         // 2. Initialize the sku count to 0. Question, is this necessary?
+        //Unnecessary
         skuCount = 0;
     }
 
@@ -122,6 +110,11 @@ contract SupplyChain {
         returns (bool)
     {
         // 1. Create a new item and put in array
+        // 2. Increment the skuCount by one
+        // 3. Emit the appropriate event
+        // 4. return true
+
+        // hint:
         items[skuCount] = Item({
             name: _name,
             sku: skuCount,
@@ -130,25 +123,10 @@ contract SupplyChain {
             seller: payable(msg.sender),
             buyer: payable(address(0))
         });
-        skuCount += 1;
+
+        skuCount = skuCount + 1;
         emit LogForSale(skuCount);
         return true;
-        // 2. Increment the skuCount by one
-        // 3. Emit the appropriate event
-        // 4. return true
-        // hint:
-        // items[skuCount] = Item({
-        //  name: _name,
-        //  sku: skuCount,
-        //  price: _price,
-        //  state: State.ForSale,
-        //  seller: msg.sender,
-        //  buyer: address(0)
-        //});
-        //
-        //skuCount = skuCount + 1;
-        // emit LogForSale(skuCount);
-        // return true;
     }
 
     // Implement this buyItem function.
@@ -169,10 +147,10 @@ contract SupplyChain {
         paidEnough(sku)
         checkValue(sku)
     {
-        Item storage item = items[sku];
-        item.buyer = payable(msg.sender);
-        item.state = State.Sold;
-        payable(item.seller).transfer(item.price);
+        items[sku].seller.transfer(items[sku].price);
+        items[sku].buyer = payable(msg.sender);
+        items[sku].state = State.Sold;
+
         emit LogSold(sku);
     }
 
@@ -186,8 +164,7 @@ contract SupplyChain {
         sold(sku)
         verifyCaller(items[sku].seller)
     {
-        Item storage item = items[sku];
-        item.state = State.Shipped;
+        items[sku].state = State.Shipped;
         emit LogShipped(sku);
     }
 
@@ -201,8 +178,7 @@ contract SupplyChain {
         shipped(sku)
         verifyCaller(items[sku].buyer)
     {
-        Item storage item = items[sku];
-        item.state = State.Received;
+        items[sku].state = State.Received;
         emit LogReceived(sku);
     }
 
